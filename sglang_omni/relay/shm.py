@@ -76,7 +76,7 @@ class ShmPutOperation(ShmOperation):
             raise TimeoutError(
                 f"SHM block {self.shm_name} was not consumed in time"
             ) from exc
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             self.unlink_if_present()
             raise
         finally:
@@ -102,6 +102,8 @@ class ShmPutOperation(ShmOperation):
             return
         try:
             shm.unlink()
+        except FileNotFoundError:
+            pass
         finally:
             shm.close()
 
