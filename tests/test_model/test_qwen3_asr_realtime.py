@@ -16,7 +16,6 @@ import shlex
 import sys
 import wave
 from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Protocol
 
@@ -82,14 +81,6 @@ def server_process(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ServerH
         yield ServerHandle(proc=process, port=port, log_file=log_file)
     finally:
         stop_server(process)
-
-
-@contextmanager
-def disable_loopback_proxies() -> Iterator[None]:
-    with disable_proxy():
-        # note (PansaLegrand): Empty proxy variables still expose macOS system proxies.
-        os.environ["NO_PROXY"] = "localhost,127.0.0.1,::1"
-        yield
 
 
 def ws_url(port: int) -> str:
@@ -188,7 +179,7 @@ async def test_manual_commit_exercises_three_refreshes_and_rollback(
     pcm = (fixture_pcm * 2)[: seconds_to_bytes(6.2)]
     boundaries = [seconds_to_bytes(seconds) for seconds in (2.1, 4.1, 6.1)]
 
-    with disable_loopback_proxies():
+    with disable_proxy():
         async with websockets.connect(ws_url(port)) as websocket:
             created = await recv_event(websocket)
             assert created["type"] == "session.created", created
@@ -239,7 +230,7 @@ async def test_server_vad_finalizes_without_manual_commit(
     port = server_process.port
     pcm = load_pcm16_16k_mono(AUDIO_FIXTURE) + b"\x00\x00" * SAMPLE_RATE
 
-    with disable_loopback_proxies():
+    with disable_proxy():
         async with websockets.connect(ws_url(port)) as websocket:
             created = await recv_event(websocket)
             assert created["type"] == "session.created", created
@@ -280,7 +271,7 @@ async def test_disconnect_then_new_session_recovers(
     port = server_process.port
     pcm = load_pcm16_16k_mono(AUDIO_FIXTURE)
 
-    with disable_loopback_proxies():
+    with disable_proxy():
         async with websockets.connect(ws_url(port)) as websocket:
             created = await recv_event(websocket)
             assert created["type"] == "session.created", created
@@ -333,7 +324,7 @@ async def test_clear_preserves_committed_text_and_accepts_new_audio(
 ) -> None:
     pcm = load_pcm16_16k_mono(AUDIO_FIXTURE)
     replacement_pcm = pcm[: seconds_to_bytes(2.1)]
-    with disable_loopback_proxies():
+    with disable_proxy():
         async with websockets.connect(ws_url(server_process.port)) as websocket:
             created = await recv_event(websocket)
             assert created["type"] == "session.created", created
@@ -388,7 +379,7 @@ async def test_repeated_manual_commits_deliver_each_final_once(
     else:
         pass
     pcm = load_pcm16_16k_mono(AUDIO_FIXTURE)
-    with disable_loopback_proxies():
+    with disable_proxy():
         async with websockets.connect(ws_url(server_process.port)) as websocket:
             created = await recv_event(websocket)
             assert created["type"] == "session.created", created
